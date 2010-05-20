@@ -216,11 +216,11 @@ module EventCalendar
                 cal << %(>)
                 
                 # add a left arrow if event is clipped at the beginning
-                if event.start_at.to_date < dates[0]
+                if event.send(event.class.start_at_column_name).to_date < dates[0]
                   cal << %(<div class="ec-left-arrow"></div>)
                 end
                 # add a right arrow if event is clipped at the end
-                if event.end_at.to_date > dates[1]
+                if [event.send(event.class.end_at_column_name).try(:to_date), event.send(event.class.start_at_column_name).to_date].compact.first > dates[1]
                   cal << %(<div class="ec-right-arrow"></div>)
                 end
                 
@@ -283,7 +283,7 @@ module EventCalendar
     # default html for displaying an event's time
     # to customize: override, or do something similar, in your helper
     def display_event_time(event, day)
-      time = event.start_at
+      time = event.send(start_at_column_name)
       if !event.all_day and time.to_date == day
         # try to make it display as short as possible
         fmt = (time.min == 0) ? "%l" : "%l:%M"

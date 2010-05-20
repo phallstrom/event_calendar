@@ -1,17 +1,21 @@
 module EventCalendar
   
   module PluginMethods
-    def has_event_calendar
-      ClassMethods.setup_event_calendar_on self
+    def has_event_calendar(options = {})
+      ClassMethods.setup_event_calendar_on self, options
     end
   end
   
   # class Methods
   module ClassMethods
     
-    def self.setup_event_calendar_on(recipient)
+    def self.setup_event_calendar_on(recipient, options = {})
+
       recipient.extend ClassMethods
       recipient.class_eval do
+        cattr_accessor :start_at_column_name, :end_at_column_name
+        self.start_at_column_name = options[:start_at_column_name] || 'start_at'
+        self.end_at_column_name = options[:end_at_column_name] || 'end_at'
         include InstanceMethods
       end
     end
@@ -47,8 +51,8 @@ module EventCalendar
     def events_for_date_range(start_d, end_d)
       self.find(
         :all,
-        :conditions => [ '(? <= end_at) AND (start_at < ?)', start_d.to_time.utc, end_d.to_time.utc ],
-        :order => 'start_at ASC'
+        :conditions => [ "(? <= #{end_at_column_name} AND #{start_at_column_name} < ?) OR (#{end_at_column_name} IS NULL AND #{start_at_column_name} BETWEEN ? AND ?)", start_d.to_time.utc, end_d.to_time.utc, start_d.to_time.utc, end_d.to_time.utc ],
+        :order => "#{start_at_column_name} ASC"
       )
     end
     
@@ -58,8 +62,9 @@ module EventCalendar
       event_strips = [[nil] * (strip_end - strip_start + 1)]
     
       events.each do |event|
-        cur_date = event.start_at.to_date
-        end_date = event.end_at.to_date
+        cur_date = event.send(start_at_column_name).to_date
+        end_date = event.send(end_at_column_name).try(:to_date)
+        end_date = cur_date if end_date.nil?
         cur_date, end_date = event.clip_range(strip_start, strip_end)
         start_range = (cur_date - strip_start).to_i
         end_range = (end_date - strip_start).to_i
@@ -143,7 +148,7 @@ module EventCalendar
     end
   
     def days
-      end_at.to_date - start_at.to_date
+      send(end_at_column_name).to_date - send(start_at_column_name).to_date
     end
   
     # start_d - start of the month, or start of the week
@@ -151,8 +156,9 @@ module EventCalendar
     def clip_range(start_d, end_d)
       # make sure we are comparing date objects to date objects,
       # otherwise timezones can cause problems
-      start_at_d = start_at.to_date
-      end_at_d = end_at.to_date
+      start_at_d = send(start_at_column_name).to_date
+      end_at_d = send(end_at_column_name).try(:to_date)
+      end_at_d = start_at_d if end_at_d.nil?
       # Clip start date, make sure it also ends on or after the start range
       if (start_at_d < start_d and end_at_d >= start_d)
         clipped_start = start_d
