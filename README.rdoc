@@ -71,7 +71,7 @@ Or simply override the default virtual attribute on the model. For example, if e
 
     # To specify the columns to use call it like this:
     # 
-    # has_event_calendar :start_at_column_name => :my_starts_at, :end_at_column_name => ':custom_ends_at' 
+    # has_event_calendar :start_at_column_name => :my_starts_at, :end_at_column_name => 'custom_ends_at'
     # 
 
   end
